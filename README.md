@@ -1,28 +1,46 @@
 # Culinary Exchange Hub
 
-This is the original Flask + psycopg2 project, prepared for hosting with minimal changes. The routes, templates, JavaScript, and database helper modules remain in the original structure.
+A full-stack recipe-sharing web application where users can register, log in, create recipes, search recipes, update their profile, and manage their own dishes.
 
-## Local run
+Built with Flask, PostgreSQL, psycopg2, HTML, CSS, JavaScript, and jQuery.
 
-1. Create the `users` PostgreSQL database as before.
-2. Copy `.env.example` to `.env` and update values only if necessary.
-3. Install packages: `pip install -r requirements.txt`
-4. Run: `python app.py`
-5. Open `http://127.0.0.1:5500`
+## Live Demo
 
-## Put it online (Render example)
+[Open the live application](https://culinaryexchangehub.onrender.com)
 
-1. Upload this project to a GitHub repository. Do not upload `.env`.
-2. In Render, create a PostgreSQL database and copy its **Internal Database URL**.
-3. Create a new Web Service from the repository.
-4. Build command: `pip install -r requirements.txt`
-5. Start command: `gunicorn app:app`
-6. Add environment variables:
-   - `DATABASE_URL`: the PostgreSQL URL from Render
-   - `SECRET_KEY`: a long random string
-   - `PGSSLMODE`: `require`
-7. Deploy. Render gives your application a public `https://...onrender.com` URL.
+> The live site is hosted on Render's free tier, so the first request after inactivity may take up to a minute.
 
-## Important
+## Features
 
-The project uses the same plain-text password design as the original code. This is acceptable only as an academic demo. Do not use it with real user passwords.
+- User registration and login
+- Password reset
+- User profile updates
+- Recipe creation and editing
+- Recipe search and display
+- Personal “My Dishes” recipe management
+- PostgreSQL-backed storage for users, recipes, ingredients, and preparation steps
+
+## Technologies Used
+
+- Python
+- Flask
+- PostgreSQL
+- psycopg2
+- HTML
+- CSS
+- JavaScript
+- jQuery
+- Render
+- Neon PostgreSQL
+
+## Architecture
+
+```text
+Browser
+   ↓
+Flask application hosted on Render
+   ↓
+psycopg2 and SQL queries
+   ↓
+Neon PostgreSQL database
+```
