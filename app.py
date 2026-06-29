@@ -1,4 +1,5 @@
 from flask import Flask, json, jsonify, redirect, render_template, request, redirect, session, url_for
+import os
 from flask_session import Session
 
 import pandas as pd
@@ -8,34 +9,74 @@ import db_code
 import users_db
 import ingredients_code
 
-app = Flask(__name__,template_folder="templates")
-app.config['SECRET_KEY'] = 'secret'
-
-app.config['SESSION_TYPE'] = 'filesystem'
+app = Flask(__name__, template_folder="templates")
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "change-this-for-production")
+app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
-users_conn = psycopg2.connect(database = "users",
-                        user = "postgres", 
-                        host= 'localhost',
-                        password = "1234",
-                        port = 5432)
+
+
+def get_db_connection():
+    """Connect to local PostgreSQL or a hosted PostgreSQL database.
+
+    Locally, set DB_* variables only if your defaults differ. In Render/Railway,
+    set DATABASE_URL to the managed PostgreSQL connection URL.
+    """
+    database_url = os.getenv("DATABASE_URL")
+    if database_url:
+        return psycopg2.connect(database_url, sslmode=os.getenv("PGSSLMODE", "require"))
+
+    return psycopg2.connect(
+        database=os.getenv("DB_NAME", "users"),
+        user=os.getenv("DB_USER", "postgres"),
+        host=os.getenv("DB_HOST", "localhost"),
+        password=os.getenv("DB_PASSWORD", "1234"),
+        port=os.getenv("DB_PORT", "5432"),
+    )
+
+
+def initialize_database():
+    """Creates the project tables on a new hosted PostgreSQL database."""
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            user_id SERIAL PRIMARY KEY,
+            user_name VARCHAR(50),
+            user_password VARCHAR(50),
+            email_id VARCHAR(50) UNIQUE NOT NULL
+        );
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS recipes (
+            recipe_id SERIAL PRIMARY KEY,
+            recipe_name VARCHAR(50) UNIQUE NOT NULL,
+            user_id INTEGER REFERENCES users(user_id) NOT NULL
+        );
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS ingredients (
+            ingredients_id SERIAL PRIMARY KEY,
+            description TEXT NOT NULL,
+            recipe_id INTEGER REFERENCES recipes(recipe_id) NOT NULL,
+            steps TEXT NOT NULL
+        );
+    """)
+    connection.commit()
+    cursor.close()
+    connection.close()
+
+
+users_conn = get_db_connection()
 users_cur = users_conn.cursor()
 users_op = users_db.DB_Operations(users_cur)
 users_values = []
 
-recipes_conn = psycopg2.connect(database = "users", 
-                        user = "postgres", 
-                        host= 'localhost',
-                        password = "1234",
-                        port = 5432)
+recipes_conn = get_db_connection()
 recipes_cur = recipes_conn.cursor()
 recipes_op = db_code.DB_Operations(recipes_cur)
 recipes_values = []
 
-ingreditents_conn = psycopg2.connect(database = "users", 
-                        user = "postgres", 
-                        host= 'localhost',
-                        password = "1234",
-                        port = 5432)
+ingreditents_conn = get_db_connection()
 ingreditents_cur = ingreditents_conn.cursor()
 ingreditents_op = ingredients_code.DB_Operations(ingreditents_cur)
 ingreditents_values = []
@@ -85,11 +126,7 @@ def display_my_dishes():
 def insert_updated_data_into_db():
     global ingreditents_conn, ingreditents_cur, ingreditents_op, ingreditents_values
     try:
-        ingreditents_conn = psycopg2.connect(database = "users",
-                            user = "postgres", 
-                            host= 'localhost',
-                            password = "1234",
-                            port = 5432)
+        ingreditents_conn = get_db_connection()
         ingreditents_cur = ingreditents_conn.cursor()
         ingreditents_op = ingredients_code.DB_Operations(ingreditents_cur)
         ingreditents_values = []
@@ -191,11 +228,7 @@ def registration_page():
 def registration():
     global users_op, users_cur, users_conn, users_values
     try:
-        users_conn = psycopg2.connect(database = "users",
-                            user = "postgres", 
-                            host= 'localhost',
-                            password = "1234",
-                            port = 5432)
+        users_conn = get_db_connection()
         users_cur = users_conn.cursor()
         users_op = users_db.DB_Operations(users_cur)
         users_values = []
@@ -210,13 +243,11 @@ def registration():
         users_values.append(value)
         users_op.insert_into_users_table(users_cur, users_values)
         users_conn.commit()
-        # users_cur.close()
-        # users_conn.close()
+
         users_values = []
         user_name = users_op.get_user_name(users_cur, email_id, user_password)
         users_conn.commit()
-        # users_cur.close()
-        # users_conn.close()
+
         users_values = []
         print("naaaaa", user_name)
         if(user_name == None or user_name == ""):
@@ -238,11 +269,7 @@ def user_login():
     global users_op, users_cur, users_conn, users_values
     try:
         
-        users_conn = psycopg2.connect(database = "users",
-                            user = "postgres", 
-                            host= 'localhost',
-                            password = "1234",
-                            port = 5432)
+        users_conn = get_db_connection()
         users_cur = users_conn.cursor()
         users_op = users_db.DB_Operations(users_cur)
         users_values = []
@@ -257,8 +284,7 @@ def user_login():
         if result:
             user_name = users_op.get_user_name(users_cur, email_id, user_password)
             users_conn.commit()
-            # users_cur.close()
-            # users_conn.close()
+
             users_values = []
             if(user_name == None or user_name == ""):
                 user_name = email_id
@@ -277,11 +303,7 @@ def user_login():
 def create_recipe():
     global recipes_conn, recipes_cur, recipes_op, users_cur, users_op, ingreditents_conn, ingreditents_cur, ingreditents_op
     try :
-        recipes_conn = psycopg2.connect(database = "users", 
-                            user = "postgres", 
-                            host= 'localhost',
-                            password = "1234",
-                            port = 5432)
+        recipes_conn = get_db_connection()
         recipes_cur = recipes_conn.cursor()
         values = []
         data = request.get_json()
@@ -315,11 +337,7 @@ def reset_password():
     global users_op, users_cur, users_conn, users_values
     try:
         
-        users_conn = psycopg2.connect(database = "users",
-                            user = "postgres", 
-                            host= 'localhost',
-                            password = "1234",
-                            port = 5432)
+        users_conn = get_db_connection()
         users_cur = users_conn.cursor()
         users_op = users_db.DB_Operations(users_cur)
         users_values = []
@@ -336,8 +354,7 @@ def reset_password():
         if result:
             users_op.set_new_password(users_cur, email_id, new_password)
             users_conn.commit()
-            # users_cur.close()
-            # users_conn.close()
+
             response = {'success': "New Password set successfully"}
             return jsonify(response)
         else:
@@ -352,11 +369,7 @@ def reset_password():
 def my_profile():
     global users_op, users_cur, users_conn, users_values
     try:
-        users_conn = psycopg2.connect(database = "users",
-                            user = "postgres", 
-                            host= 'localhost',
-                            password = "1234",
-                            port = 5432)
+        users_conn = get_db_connection()
         users_cur = users_conn.cursor()
         users_op = users_db.DB_Operations(users_cur)
         users_values = []
@@ -374,8 +387,7 @@ def my_profile():
             users_conn.commit()
             users_op.set_display_name(users_cur, email_id, display_name)
             users_conn.commit()
-            # users_cur.close()
-            # users_conn.close()
+
             response = {'message': "New Password and display Name set successfully", 'email': email_id, 'username':display_name, 'password':user_password}
             return jsonify(response)
         else:
@@ -385,5 +397,17 @@ def my_profile():
         print("exception", e)
         return jsonify({'error': str(e)}), 500
     
-if __name__ == '__main__': 
-    app.run(host='localhost', port=5500)
+@app.route("/health")
+def health():
+    return {"status": "ok"}, 200
+
+
+if __name__ == "__main__":
+    initialize_database()
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5500")))
+
+# Initialise tables when the application starts on a hosted platform.
+try:
+    initialize_database()
+except Exception as exc:
+    app.logger.warning("Database initialization skipped: %s", exc)
